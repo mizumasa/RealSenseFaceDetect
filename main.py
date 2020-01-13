@@ -15,7 +15,10 @@ CAM_ON = True
 def main(args):
     if CAM_ON:
         cam = rs.RS_FACE()
-    osc = osc_of.PyModule()
+    demo = False
+    if "demo" in args:
+        demo = True
+    osc = osc_of.PyModule(demo)
     count = 0
     while 1:
         ret = None
@@ -29,7 +32,7 @@ def main(args):
                 msg.append(ret[i][3])
                 msg.append(ret[i][4])
                 msg.append(ret[i][5])
-                osc.c.send(msg)
+                osc.send(msg)
 
         else:
             cv2.imshow("test",np.zeros((10,10),dtype="uint8"))
@@ -42,7 +45,7 @@ def main(args):
             msg = OSC.OSCMessage() 
             msg.setAddress("/status")
             msg.append("loop")
-            osc.c.send(msg)
+            osc.send(msg)
         except:
             print("osc error")
         print(osc.getData())

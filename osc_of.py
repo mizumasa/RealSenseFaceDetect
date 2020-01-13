@@ -22,19 +22,30 @@ RECV_ADDRESS = '127.0.0.1', OSC_PORT_OF2PY
 
 
 class PyModule:
-    def __init__(self):
+    def __init__(self,demo=False):
+        self.nowork = False
+        if demo:
+            self.nowork = True
         self.setup()
         self.d = {}
         return
 
+    def send(self,msg):
+        if self.nowork:
+            print("No work mode",msg)
+            return
+        self.c.send(msg)
+        return
+
     def setup(self):
         print "[PY] client init"
-        self.c = OSC.OSCClient()
-        self.c.connect(SEND_ADDRESS) 
+        if not self.nowork:
+            self.c = OSC.OSCClient()
+            self.c.connect(SEND_ADDRESS) 
         msg = OSC.OSCMessage() 
         msg.setAddress("/status")
         msg.append("python OSC started")
-        self.c.send(msg)
+        self.send(msg)
 
         print "[PY] server init"
         self.s = OSC.OSCServer(RECV_ADDRESS)
