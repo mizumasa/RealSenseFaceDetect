@@ -43,7 +43,7 @@ def descToValue(kp,des,v,offsetx=0,offsety=0):
     arr[1:kpnum+1,1] += offsety
 
 
-def Process1(ptomain,maintop,frame_conn):
+def Process1(ptomain,maintop,frame_conn,frame_conn_res):
     elapsed_times = []
     count = 0
     detector = dlib.get_frontal_face_detector()
@@ -73,7 +73,7 @@ def Process1(ptomain,maintop,frame_conn):
             maxSize = 0
             dets, scores, idx = detector.run(img_rgb, 0)
             for det in dets:
-                cv2.rectangle(img_rgb, (det.left(), det.top()), (det.right(), det.bottom()), (0, 0, 255))
+                #cv2.rectangle(img_rgb, (det.left(), det.top()), (det.right(), det.bottom()), (0, 0, 255))
                 w = det.right() - det.left()
                 h = det.bottom() - det.top()
                 if max(w,h)>maxSize:
@@ -83,6 +83,7 @@ def Process1(ptomain,maintop,frame_conn):
                     maxb = det.bottom()
                     maxSize = max(w,h)
             if maxSize > 20:
+                valueToNdarray(frame_conn_res)[:] = img_rgb.flatten()
                 ptomain.send({"face":[maxl,maxt,maxr,maxb]})
             #cv2.imshow("dlib",cv2.resize(img_rgb,(640,360)))
             key = cv2.waitKey(1)
@@ -106,26 +107,31 @@ def main(argv):
     parent_maintop1, child_maintop1 = Pipe()
     parent_ptomain1, child_ptomain1 = Pipe()
     frame_conn1 = Array('i',np.zeros((rs.CAM_W*rs.CAM_H*3),dtype="uint8"))
-    p1 = Process(target = Process1, args=(child_ptomain1, parent_maintop1, frame_conn1))
+    frame_conn2 = Array('i',np.zeros((rs.CAM_W*rs.CAM_H*3),dtype="uint8"))
+    p1 = Process(target = Process1, args=(child_ptomain1, parent_maintop1, frame_conn1, frame_conn2))
     p1.start()
     cam = rs.RS_FACE(dlib=False)
     detl = 0
     dett = 0
     detr = 0
     detb = 0
+    tracker = dlib.correlation_tracker()
+    track = False
     while 1:
         ret = cam.read()
         if ret is not None:
             color,depth = ret
-
-            cv2.rectangle(color, (detl, dett), (detr, detb), (0, 0, 255))
-            cv2.imshow("color",color)
             img_rgb = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
             valueToNdarray(frame_conn1)[:] = img_rgb.flatten()
+
+            cv2.rectangle(color, (detl, dett), (detr, detb), (0, 0, 255))
 
             while parent_ptomain1.poll():
                 d = parent_ptomain1.recv()
                 if "face" in d.keys():
+                    img_rgb_res = valueToNdarray(frame_conn2).astype("uint8")
+                    img_rgb_res = img_rgb_res.reshape((rs.CAM_H,rs.CAM_W,3))
+                    img_bgr_res = cv2.cvtColor(img_rgb_res, cv2.COLOR_BGR2RGB)
                     print("got conn face",d["face"])
                     detl = d["face"][0]
                     dett = d["face"][1]
@@ -138,6 +144,22 @@ def main(argv):
                     d = float(np.median(depth[ cy - h/6 : cy + h/6, cx - w/6 : cx + w/6 ]))
                     conv = rs.convert(cx,cy,d)
                     print([cx,cy,d,]+conv)
+                    img_rgb_res
+                    tracker.start_track(img_bgr_res, dlib.rectangle(detl, dett, detr, detb))
+                    track = True
+                    cv2.rectangle(img_rgb_res, (detl, dett), (detr, detb), (0, 0, 255))
+                    cv2.imshow("res",img_rgb_res)
+
+            if track:
+                tracker.update(color)
+                tracking_point = tracker.get_position()
+                tracking_point_x1 = int(tracking_point.left())
+                tracking_point_y1 = int(tracking_point.top())
+                tracking_point_x2 = int(tracking_point.right())
+                tracking_point_y2 = int(tracking_point.bottom())
+                cv2.rectangle(color, (tracking_point_x1, tracking_point_y1), (tracking_point_x2, tracking_point_y2), (255, 255, 255), 2)
+
+            cv2.imshow("color",color)
 
             if 0:
                 for i in range(len(ret)):
