@@ -19,6 +19,7 @@ def main(args):
     if "demo" in args:
         demo = True
     osc = osc_of.PyModule(demo)
+    #osc.setup()
     count = 0
     while 1:
         ret = None
@@ -50,8 +51,8 @@ def main(args):
             print("osc error")
         print(osc.getData())
         count += 1
-        if count > 100:
-            break
+        #if count > 100:
+        #    break
 
     print("finish")
     osc.close()

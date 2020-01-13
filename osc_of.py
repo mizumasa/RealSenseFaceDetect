@@ -26,15 +26,19 @@ class PyModule:
         self.nowork = False
         if demo:
             self.nowork = True
-        self.setup()
         self.d = {}
+        self.c = None
         return
 
     def send(self,msg):
         if self.nowork:
             print("No work mode",msg)
             return
-        self.c.send(msg)
+        else:
+            if self.c is None:
+                self.c = OSC.OSCClient()
+                self.c.connect(SEND_ADDRESS) 
+            self.c.send(msg)
         return
 
     def setup(self):
