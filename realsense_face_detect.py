@@ -17,7 +17,7 @@ CAM_H = 720
 
 CAM_ANGLE_W = 69.4 / 2
 CAM_ANGLE_H = 42.5 / 2
-CAM_ANGLE = 30
+CAM_ANGLE = 0
 
 CAM_D_W = CAM_W / 2 / math.tan(math.pi * CAM_ANGLE_W / 180)
 CAM_D_H = CAM_H / 2 / math.tan(math.pi * CAM_ANGLE_H / 180)
@@ -32,7 +32,7 @@ def convert(cx,cy,cd):
     return [x,y,d]
 
 class RS_FACE():
-    def __init__(self):
+    def __init__(self,dlib = True):
         # Configure depth and color streams
         self.pipeline = rs.pipeline()
         self.config = rs.config()
@@ -41,8 +41,9 @@ class RS_FACE():
 
         # Start streaming
         self.pipeline.start(self.config)
-
-        self.detector = dlib.get_frontal_face_detector()
+        self.dlibOn = dlib
+        if self.dlibOn:
+            self.detector = dlib.get_frontal_face_detector()
         return
 
     def read(self):
@@ -56,7 +57,8 @@ class RS_FACE():
         # Convert images to numpy arrays
         depth_image = np.asanyarray(depth_frame.get_data())
         color_image = np.asanyarray(color_frame.get_data())
-
+        if not self.dlibOn:
+            return color_image, depth_image
         img_rgb = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
         depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
         
