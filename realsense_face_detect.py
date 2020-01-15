@@ -14,6 +14,8 @@ import math
 #D415 D = 69.4 x 42.5 x 77
 CAM_W = 1280
 CAM_H = 720
+CAM_W = 640
+CAM_H = 360
 
 CAM_ANGLE_W = 69.4 / 2
 CAM_ANGLE_H = 42.5 / 2

@@ -10,10 +10,13 @@ import osc_of
 import OSC
 import dlib
 
+from LowPassFilter import LowPassFilter
 from multiprocessing import Process
 from multiprocessing import Pipe
 from multiprocessing import Array
 
+cutoff_hz = 1.0
+dt = 1.0/30
 
 def valueToNdarray(v):
     return np.ctypeslib.as_array(v.get_obj())
@@ -117,6 +120,13 @@ def main(argv):
     detb = 0
     tracker = dlib.correlation_tracker()
     track = False
+    LPF = LowPassFilter()
+    LPF.set_param(np.zeros(5),cutoff_hz,dt)
+
+    output_x_lpf = 0
+    output_y_lpf = 0
+    output_z_lpf = 0
+    
     while 1:
         ret = cam.read()
         if ret is not None:
@@ -147,16 +157,38 @@ def main(argv):
                     img_rgb_res
                     tracker.start_track(img_bgr_res, dlib.rectangle(detl, dett, detr, detb))
                     track = True
-                    cv2.rectangle(img_rgb_res, (detl, dett), (detr, detb), (0, 0, 255))
-                    cv2.imshow("res",img_rgb_res)
+                    if 0:
+                        cv2.rectangle(img_rgb_res, (detl, dett), (detr, detb), (0, 0, 255))
+                        cv2.imshow("res",img_rgb_res)
 
             if track:
                 tracker.update(color)
                 tracking_point = tracker.get_position()
-                tracking_point_x1 = int(tracking_point.left())
-                tracking_point_y1 = int(tracking_point.top())
-                tracking_point_x2 = int(tracking_point.right())
-                tracking_point_y2 = int(tracking_point.bottom())
+                tracking_point_x1 = tracking_point.left()
+                tracking_point_y1 = tracking_point.top()
+                tracking_point_x2 = tracking_point.right()
+                tracking_point_y2 = tracking_point.bottom()
+                w = tracking_point_x2 - tracking_point_x1
+                h = tracking_point_y2 - tracking_point_y1
+                cx = tracking_point_x1 + w/2
+                cy = tracking_point_y1 + h/2
+                dArea = depth[ int(cy - h/6) : int(cy + h/6), int(cx - w/6) : int(cx + w/6) ]
+                if dArea.shape != (0,0):
+                    d = float(np.median(dArea))
+                    conv = np.asarray([cx,cy,] + rs.convert(cx,cy,d))
+                    if sum(np.isnan(conv))==0:
+                        conv = LPF.calc(np.asarray(conv))
+                        cx = int(conv[0])
+                        cy = int(conv[1])
+                        cv2.rectangle(color, (cx-3, cy-3), (cx+3, cy+3), (255, 255, 255), 2)
+                        output_x_lpf = conv[2]
+                        output_y_lpf = conv[3]
+                        output_z_lpf = conv[4]
+                        print("pos :",output_x_lpf,output_y_lpf,output_z_lpf)
+                tracking_point_x1 = int(tracking_point_x1)
+                tracking_point_x2 = int(tracking_point_x2)
+                tracking_point_y1 = int(tracking_point_y1)
+                tracking_point_y2 = int(tracking_point_y2)
                 cv2.rectangle(color, (tracking_point_x1, tracking_point_y1), (tracking_point_x2, tracking_point_y2), (255, 255, 255), 2)
 
             cv2.imshow("color",color)
